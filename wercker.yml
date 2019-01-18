@@ -25,7 +25,7 @@ push-release:
         working-dir: /pipeline/source
         ports: $PORT
         env: PORT=$PORT
-        cmd: sh target/bin/start
+        cmd: java -jar target/priceservice.jar
         
 #delete any existing Wercker secret before creating, to accommodate secret changes
 inject-secret:
