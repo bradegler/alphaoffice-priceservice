@@ -1,0 +1,54 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: priceservice
+  labels:
+    commit: ${WERCKER_GIT_COMMIT}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: priceservice
+  template:
+    metadata:
+      labels:
+        app: priceservice
+        commit: ${WERCKER_GIT_COMMIT}
+    spec:
+      containers:
+      - name: priceservice
+        image: ${V2_REGISTRY}/${DOCKER_REPO}:${WERCKER_GIT_BRANCH}-${WERCKER_GIT_COMMIT}
+        imagePullPolicy: Always
+        ports:
+        - name: priceservice
+          containerPort: ${PORT}
+          protocol: TCP
+        volumeMounts:
+            - name: podinfo
+              mountPath: /tmp
+              readOnly: false
+      imagePullSecrets:
+        - name: ocir
+      volumes:
+        - name: podinfo
+          downwardAPI:
+            items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: priceservice
+  labels:
+    app: priceservice
+    commit: ${WERCKER_GIT_COMMIT}
+spec:
+  ports:
+  - port: 30000
+    targetPort: ${PORT}
+  selector:
+    app: priceservice
+  type: ClusterIP
+---

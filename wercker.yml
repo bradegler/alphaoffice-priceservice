@@ -1,26 +1,32 @@
-box: openjdk:8-jre-alpine
+#Use OpenJDK base docker image from dockerhub and open the application port on the docker container
+box:
+  id: openjdk
+  ports:
+    - $PORT
 
+#Build our application using Maven, just as we always have
 build:
   steps:
     - install-packages:
         packages: maven
     - script:
         name: maven build
-        code: mvn install
-
+        code: mvn clean package
+        
+#Push the docker image with our built and tested application to Docker Hub
 push-release:
   steps:
     - internal/docker-push:
         username: $DOCKER_USERNAME
         password: $DOCKER_PASSWORD
         repository: $DOCKER_REPO
-        registry: $DOCKER_REGISTRY
+        registry: $V2_REGISTRY
         tag: $WERCKER_GIT_BRANCH-$WERCKER_GIT_COMMIT
-        working-dir: $WERCKER_ROOT
+        working-dir: /pipeline/source
         ports: $PORT
         env: PORT=$PORT
-        cmd: java -jar priceservice.jar
-
+        cmd: sh target/bin/start
+        
 #delete any existing Wercker secret before creating, to accommodate secret changes
 inject-secret:
     box:
@@ -40,8 +46,9 @@ inject-secret:
         server: $KUBERNETES_MASTER
         token: $KUBERNETES_TOKEN
         insecure-skip-tls-verify: true
-        command: create secret docker-registry ocir --docker-server=$DOCKER_SERVER --docker-username=$DOCKER_USERNAME --docker-password='$DOCKER_PASSWORD' --docker-email=$DOCKER_EMAIL --namespace=$WERCKER_APPLICATION_OWNER_NAME; echo create registry secret
+        command: create secret docker-registry ocir --docker-server=$V2_REGISTRY --docker-username=$DOCKER_USERNAME --docker-password="$DOCKER_PASSWORD" --docker-email=$DOCKER_EMAIL --namespace=$WERCKER_APPLICATION_OWNER_NAME; echo create registry secret
 
+#Deploy our container from the Docker Hub to Kubernetes
 deploy-to-cluster:
     box:
         id: alpine
@@ -51,14 +58,13 @@ deploy-to-cluster:
     - bash-template
 
     - script:
-        name: "Prepare K8S Config"
-        code: |
-          mkdir $WERCKER_OUTPUT_DIR/kubernetes
-          mv app.yml $WERCKER_OUTPUT_DIR/kubernetes
+        name: "Visualise Kubernetes config"
+        code: cat kubernetes.yml
 
     - kubectl:
         name: deploy to kubernetes
         server: $KUBERNETES_MASTER
+        #username: $KUBERNETES_USERNAME
         token: $KUBERNETES_TOKEN
         insecure-skip-tls-verify: true
-        command: apply -f $WERCKER_OUTPUT_DIR/kubernetes/ --namespace=$WERCKER_APPLICATION_OWNER_NAME
+        command: apply -f kubernetes.yml --namespace=$WERCKER_APPLICATION_OWNER_NAME
