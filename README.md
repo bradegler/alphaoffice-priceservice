@@ -65,3 +65,5 @@ kubectl get pods                    # Verify connectivity to cluster
 kubectl create -f target/app.yaml   # Deply application
 kubectl get service priceservice  # Get service info
 ```
+
+Deployments managed by wercker
